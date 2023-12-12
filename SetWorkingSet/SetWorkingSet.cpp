@@ -8,7 +8,7 @@
 using namespace std;
 typedef basic_string<TCHAR> tstring;
 
-void GetOSErrorMessage( DWORD ErrorCode, tstring & strErr )
+static tstring GetOSErrorMessage( DWORD ErrorCode )
 {
 	LPVOID lpMsgBuf;
 	FormatMessage( 
@@ -25,10 +25,12 @@ void GetOSErrorMessage( DWORD ErrorCode, tstring & strErr )
 	// Process any inserts in lpMsgBuf.
 	// ...
 	// Return the string.
-	strErr = (LPCTSTR)lpMsgBuf;
+	tstring strErr = (LPCTSTR)lpMsgBuf;
 
 	// Free the buffer.
 	LocalFree( lpMsgBuf );
+
+	return strErr;
 }
 
 int _tmain(int argc, _TCHAR* argv[] )
@@ -52,40 +54,36 @@ int _tmain(int argc, _TCHAR* argv[] )
 			minWS = maxWS = static_cast<SIZE_T>(~0);
 		}
 
-		HANDLE hndl = OpenProcess( PROCESS_SET_QUOTA, FALSE, pid ); 
+		HANDLE hProcess = OpenProcess( PROCESS_SET_QUOTA, FALSE, pid ); 
 
-		if ( hndl != NULL )
+		if ( hProcess != NULL )
 		{
-			if ( SetProcessWorkingSetSize( hndl, minWS, maxWS ) )
+			if ( SetProcessWorkingSetSize( hProcess, minWS, maxWS ) )
 			{
 				_putts( _T("Success\n") );
 				RetVal = 0;
 			}
 			else
 			{
-				DWORD le = GetLastError();
-				tstring strErr;
-				GetOSErrorMessage( le, strErr );
+				RetVal = GetLastError();
+				const tstring strErr{ GetOSErrorMessage( RetVal ) };
 				_tprintf( _T("Failed to SetProcessWorkingSetSize - %s\n"), strErr.c_str() );
-				RetVal = le;
 			}
-			CloseHandle(hndl); 
+			CloseHandle(hProcess); 
 		}
 		else
 		{
-			DWORD le = GetLastError();
-			tstring strErr;
-			GetOSErrorMessage( le, strErr );
+			RetVal = GetLastError();
+			const tstring strErr{ GetOSErrorMessage( RetVal ) };
 			_tprintf( _T("Failed to OpenProcess - %s\n"), strErr.c_str() );
-			RetVal = le;
 		}
 	}
 	else
 	{
 		_putts(	/*_T("Invalid argument.\n")*/
-				_T("Usage: SetWorkingSet PID [MinSize, MaxSize]\n")
+				_T("Usage: SetWorkingSet PID [MinSize MaxSize]\n")
 				_T("\tPID = decimal value of the process ID you want to alter.\n")
-				_T("\tMinSize, MaxSize = what they say!") );
+				_T("\tMinSize MaxSize = values passed to the SetProcessWorkingSetSize API. If ommitted, -1 values are used.") );
 		RetVal = 1;
 	}
 
